@@ -1,0 +1,76 @@
+#! /usr/bin/env bash
+
+# handling help
+if [[ -z $1 ]] || [[ $1 == '-h' ]] || [[ $1 == '-v' ]]; then
+  printf '%s\n\n' "Checksum comparison script usefull for a single file and a posted copy-pasted hash"
+  printf '%s\n%s\n\n' " USE" '  checksumcheck [FILE] [POSTED_CHECKSUM] [ALGORITHM]'
+  printf '%s\n%s\n\n' " ALGORITHM:" '  [ 1 (default), 224, 256, 384, 512, 512224, 512256 ]'
+
+  printf '%s\n  $     %s\n' " EXAMPLE:" 'checksumcheck ~/downloads/document.pdf 89b8ded93ebf6664c441ecc13e0df458de58cc85'
+  printf '  >>> %s\n  >>> \n' "  Checksum of a file matches provided checksum"
+  printf '  >>> %s\n' "   file checksum: 89b8ded93ebf6664c441ecc13e0df458de58cc85"
+  printf '  >>> %s\n\n' "   compare with:  89b8ded93ebf6664c441ecc13e0df458de58cc85"
+
+
+  printf '%s\n%s\n\n' "Uses shasum - Print or Check SHA Checksums"
+
+
+  printf '%s\n' "written by: Dmitriy Zelinskiy"
+  printf '%s\n' "11.07.2021"
+  exit
+fi
+
+
+# checking if file exist, but we also need read access, otherwise shasum
+#  will throw an error. To avoid that let's just check if we can read file and exit
+#  with an "universal" :) message if not
+if ! [[ -r $1 ]]; then
+  printf '%s\n' "can't read file, check filename."
+  exit
+fi
+
+
+# now let's process last argument, if it is not set: default to 1
+if [[ -z $3 ]]; then
+  algorithm=1
+else  
+  algorithm="$3"
+fi
+
+
+# calculating a checksum of a file and setting result to an array
+file_checksum=($(shasum -a "$algorithm" "$1"))
+
+
+# if only the file is provided, then just pass-through shasum output and exit
+# using colors/format in the output with ANSI escape sequences
+# \e[1;31m  Bold style; Red foreground color
+# \e[31m    Red foreground
+# \e[4;42m  Underline; Green background
+# \e[m      reset colors to default
+# ...
+if [[ -z $2 ]]; then
+  printf "\e[1;31mnothing to compare to\e[m\n"
+  printf ' %s\n' "${file_checksum[1]}"
+  printf ' sha%s: \e[1;37m%s\e[m\n' "$algorithm" "${file_checksum[0]}"
+  exit
+fi
+
+# setting some variables to one of the outputs condition to avoid using "else"
+file_checksum="${file_checksum[0]}"
+ret_message="\e[1;31mDoes not match\e[m"
+ret_color=31
+
+# this is actual comparison of the hash
+# using bash string comparison, 
+if [[ "$file_checksum" == "$2" ]]; then
+  ret_message="\e[1;36mChecksum of a file matches provided checksum\e[m"
+  ret_color=34
+fi
+
+
+# output format is the same, in every case, just different variables;
+# saving on conditional statements
+printf '\n%b\n\n' "$ret_message"
+printf ' file checksum: \e[1;37m%s\e[m\n' "$file_checksum"
+printf ' compare with:  \e[1;%sm%s\e[m\n' "$ret_color" "$2"
